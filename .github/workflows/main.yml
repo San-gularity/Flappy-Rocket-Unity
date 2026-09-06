@@ -1,4 +1,28 @@
-- name: Unity - Request Activation File
-  # You may pin to the exact commit or the version.
-  # uses: game-ci/unity-request-activation-file@65874ef791dae6dfa5829f1cb490eafbd7b2173c
-  uses: game-ci/unity-request-activation-file@v2.2.0
+# Run this once, by hand, to get a Unity licence for CI.
+#
+#   1. Actions -> "Request Unity activation file" -> Run workflow
+#   2. Download the "Unity_v2020.3.2f1.alf" artifact and unzip it
+#   3. Upload the .alf at https://license.unity3d.com/manual, pick Unity Personal,
+#      and download the .ulf it gives back
+#   4. Paste the whole .ulf contents into a repo secret named UNITY_LICENSE
+#      (do this in BOTH game repos), alongside UNITY_EMAIL and UNITY_PASSWORD
+#   5. Delete this workflow — the licence does not expire on its own
+name: Request Unity activation file
+
+on:
+  workflow_dispatch:
+
+jobs:
+  activation:
+    name: Request .alf file
+    runs-on: ubuntu-latest
+    steps:
+      - id: request
+        uses: game-ci/unity-request-activation-file@v2.2.0
+        with:
+          unityVersion: 2020.3.2f1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.request.outputs.filePath }}
+          path: ${{ steps.request.outputs.filePath }}
