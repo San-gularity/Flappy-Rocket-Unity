@@ -1,0 +1,72 @@
+name: Build WebGL and deploy to playground
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+concurrency:
+  # The site repo is a shared push target — never let two builds race for it.
+  group: playground-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: WebGL
+    runs-on: ubuntu-latest
+    steps:
+      # The Unity editor image is several GB; a stock runner is tight without this.
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      # Turns a ~20 minute cold build into a few minutes on later runs.
+      - uses: actions/cache@v4
+        with:
+          path: 'Flappy Rocket/Library'
+          key: Library-WebGL-${{ hashFiles('Flappy Rocket/Assets/**', 'Flappy Rocket/ProjectSettings/**', 'Flappy Rocket/Packages/**') }}
+          restore-keys: |
+            Library-WebGL-
+
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: 'Flappy Rocket'
+          unityVersion: 2020.3.2f1
+          targetPlatform: WebGL
+          buildName: flappy-rocket
+          allowDirtyBuild: true
+
+      - name: Fix permissions on build output
+        run: sudo chown -R $USER:$USER build
+
+      - name: Publish to San-gularity.github.io
+        env:
+          SITE_TOKEN: ${{ secrets.SITE_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:${SITE_TOKEN}@github.com/San-gularity/San-gularity.github.io.git" site
+          rm -rf "site/flappy-rocket"
+          mkdir -p "site/flappy-rocket"
+          cp -R build/WebGL/flappy-rocket/. "site/flappy-rocket/"
+          cd site
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A "flappy-rocket"
+          if git diff --cached --quiet; then
+            echo "Build output unchanged — nothing to publish."
+          else
+            git commit -m "build(flappy-rocket): WebGL from ${GITHUB_REPOSITORY}@${GITHUB_SHA:0:7}"
+            git push
+          fi

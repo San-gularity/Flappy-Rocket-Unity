@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕹️</text></svg>">
+  <style>
+    :root {
+      --ground: #0b0d12;
+      --ink: #e8ecf7;
+      --muted: #93a0bb;
+      --line: #232936;
+      --accent: #ff7a3d;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header mirrors the playground's HUD bar so the game reads as part of the site. */
+    .hud {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 2px solid var(--line);
+      background: #080a0e;
+    }
+    .hud a, .hud span { font-family: "Press Start 2P", monospace; font-size: 10px; }
+    .hud a {
+      color: var(--ink);
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 2px solid var(--line);
+      border-radius: 4px;
+    }
+    .hud a:hover, .hud a:focus-visible { border-color: var(--accent); color: var(--accent); }
+    .hud .title { color: var(--muted); letter-spacing: .5px; }
+
+    .stage {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      min-height: 0;
+    }
+    #unity-container { position: relative; }
+    #unity-canvas {
+      display: block;
+      background: #000;
+      max-width: 100%;
+      max-height: 100%;
+      border: 2px solid var(--line);
+      border-radius: 4px;
+    }
+
+    /* Loading bar */
+    #unity-loading-bar {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: var(--ground);
+    }
+    #unity-loading-bar[hidden] { display: none; }
+    .loading-label { font-family: "Press Start 2P", monospace; font-size: 10px; color: var(--muted); }
+    #unity-progress-bar-empty { width: 220px; height: 12px; border: 2px solid var(--line); border-radius: 2px; }
+    #unity-progress-bar-full { width: 0; height: 100%; background: var(--accent); transition: width .2s ease; }
+
+    #unity-warning {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+      display: none;
+      max-width: 90%;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .foot {
+      flex: 0 0 auto;
+      padding: 8px 16px;
+      border-top: 2px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .foot button {
+      font: inherit;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 2px 10px;
+      cursor: pointer;
+    }
+    .foot button:hover { color: var(--accent); border-color: var(--accent); }
+
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <a href="/">&larr; Playground</a>
+    <span class="title">{{{ PRODUCT_NAME }}}</span>
+  </div>
+
+  <div class="stage">
+    <div id="unity-container">
+      <canvas id="unity-canvas" width="{{{ WIDTH }}}" height="{{{ HEIGHT }}}" tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div class="loading-label">Loading</div>
+        <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+      </div>
+      <div id="unity-warning"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Click, tap or hold Space to fire the rocket</span>
+    <button type="button" id="unity-fullscreen-button">Fullscreen</button>
+  </div>
+
+  <script>
+    var container = document.querySelector("#unity-container");
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingBar = document.querySelector("#unity-loading-bar");
+    var progressBarFull = document.querySelector("#unity-progress-bar-full");
+    var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+    var warningBanner = document.querySelector("#unity-warning");
+
+    function unityShowBanner(msg, type) {
+      warningBanner.innerText = msg;
+      warningBanner.style.display = "block";
+      warningBanner.style.background = type == "error" ? "#8c2f2f" : "#8c6a2f";
+      if (type == "warning") setTimeout(function () { warningBanner.style.display = "none"; }, 5000);
+    }
+
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    var config = {
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
+      showBanner: unityShowBanner,
+    };
+
+    // Fit the canvas to whatever space is left, keeping the game's aspect ratio.
+    var aspect = {{{ WIDTH }}} / {{{ HEIGHT }}};
+    function resize() {
+      var stage = document.querySelector(".stage");
+      var availW = stage.clientWidth - 24;
+      var availH = stage.clientHeight - 24;
+      var w = availW, h = availW / aspect;
+      if (h > availH) { h = availH; w = availH * aspect; }
+      container.style.width = w + "px";
+      container.style.height = h + "px";
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (progress) {
+        progressBarFull.style.width = (100 * progress) + "%";
+      }).then(function (unityInstance) {
+        loadingBar.hidden = true;
+        // Keyboard has to reach the canvas, not the page around it.
+        canvas.focus();
+        fullscreenButton.onclick = function () { unityInstance.SetFullscreen(1); };
+      }).catch(function (message) {
+        unityShowBanner(message, "error");
+      });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

@@ -32,7 +32,7 @@ public class PlayerControl2 : MonoBehaviour
         {
             CreateExhaust();
             rb.isKinematic = true;
-            if(Input.touchCount > 0)
+            if(ThrustHeld())
             {
                 StartGame();
             }
@@ -54,12 +54,21 @@ public class PlayerControl2 : MonoBehaviour
         float ang = Mathf.Atan2(rb.velocity.y, x: 10) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(new Vector3(x: 0, y: 0, z: ang - 90));
      
-        if (Input.touchCount > 0) //(vDirection > 0)
+        if (ThrustHeld())
         {
             rb.velocity = new Vector2(rb.velocity.x, thrust);
             CreateExhaust();
         }
     }
+    // Tap on phones, click or space on a desktop browser. The game shipped
+    // touch-only, which left the WebGL build with no way to fly at all.
+    private static bool ThrustHeld()
+    {
+        return Input.touchCount > 0
+            || Input.GetMouseButton(0)
+            || Input.GetKey(KeyCode.Space);
+    }
+
     void CreateExhaust()
     {
         exhaust.Play();
