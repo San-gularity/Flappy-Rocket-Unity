@@ -44,6 +44,12 @@ public class PauseMenu : MonoBehaviour
 
     public void QuitDirect()
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // A browser tab can't be quit from inside the game, so send the player
+        // back to the menu — the nearest thing to "leave this run".
+        LoadMenu();
+#else
         Application.Quit();
+#endif
     }
 }
