@@ -19,11 +19,18 @@ public class PlayerControl2 : MonoBehaviour
     private bool once = false;
     private bool pause = true;
 
+    // True once the player has started a run. Obstacles read this instead of
+    // polling input themselves — otherwise each one sits frozen until the next
+    // input event, which is what left them stranded off-screen entirely.
+    public static bool RunStarted { get; private set; }
+
     public new AudioPart audio;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        // Static state survives scene loads, so clear it on every fresh run.
+        RunStarted = false;
     }
 
     void Update()
@@ -96,6 +103,7 @@ public class PlayerControl2 : MonoBehaviour
     {
         pause = false;
         rb.isKinematic = false;
+        RunStarted = true;
     }
 
 }

@@ -25,7 +25,10 @@ public class BottomObstacle : MonoBehaviour
     {
         if(!death && pause)
         {
-            if(Input.touchCount > 0)
+            // Was Input.touchCount > 0, which is never true in a desktop
+            // browser — obstacles never un-paused, so they sat at x=36.7
+            // off-screen and the game looked empty.
+            if(PlayerControl2.RunStarted)
             {
                 StartGame();
             }
